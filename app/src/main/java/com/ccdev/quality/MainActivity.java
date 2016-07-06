@@ -11,20 +11,12 @@ import com.ccdev.quality.Utils.Networking;
 import com.ccdev.quality.Utils.Prefs;
 
 public class MainActivity extends AppCompatActivity
-    implements LoginFragment.OnLoginListener, SettingsFragment.OnSettingsListener, FoldersFragment.OnFoldersListener {
+    implements LoginFragment.OnLoginListener, SettingsFragment.OnSettingsListener {
 
-    public interface OnMainListener {
-        void OnBackDetected();
-    }
     private DrawerLayout mDrawerLayout;
 
     private FragmentManager mFragmentManager;
     private Fragment mLoginFragment, mFoldersFragment, mSettingsFragment;
-
-    @Override
-    public void todo() {
-
-    }
 
     @Override
     public void OnLoginResult(int status) {

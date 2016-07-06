@@ -26,80 +26,80 @@ public class Networking {
     private static String mCurrentPath;
     private static String mCurrentName;
 
+    private static ArrayList<BreadCrumb> mBreadCrumbs = new ArrayList<>();
+
     private static final String FILES_FILTER = "(?i).*(.tif|.tiff|.gif|.jpeg|.jpg|.png)";
 
-    public static String getCurrentPath() {
-        // TODO check for null?
-        return mCurrentPath;
-    }
+    private static class BreadCrumb {
+        String path;
+        String name;
 
-    public static String getCurrentName() {
-        // TODO check for null?
-        return mCurrentName;
-    }
+        public BreadCrumb(String pathToCrumb) {
+            String[] split = pathToCrumb.split("/");
 
-    public static int goBack() {
-        String newPath = mCurrentPath.replace(mCurrentName, "");
-
-        // TODO validate
-
-        if (newPath.length() < Prefs.getRoot().length()) {
-            // TODO handle this
-            return -1;
+            path = pathToCrumb;
+            name = split[split.length-1];
         }
-
-        return getFileTree(newPath);
     }
 
-    public static int getFileTree(String path) {
+    public static int getRoot() {
 
         if (Prefs.checkServerSettings() != Prefs.SETTINGS_OK || Prefs.checkUserSettings() != Prefs.SETTINGS_OK) {
             // TODO handle this
         }
 
-        mCurrentPath = path;
-
-        SmbFile smbFiles = null;
-        try {
-            smbFiles = new SmbFile(path);
-        } catch (MalformedURLException e) {
-            // TODO handle this
-        }
-
-        if (smbFiles == null) {
-            // TODO handle this
-        }
-
-        mCurrentName = smbFiles.getName();
-        mDirs = new ArrayList<>();
-        mFiles = new ArrayList<>();
-
-        try {
-            for (SmbFile smbFile : smbFiles.listFiles()) {
-                if (smbFile.isHidden()) continue;
-                if (smbFile.isDirectory()) mDirs.add(smbFile);
-                if (smbFile.isFile() && smbFile.getName().matches(FILES_FILTER)) mFiles.add(smbFile);     // TODO this doesn't work.
-            }
-        } catch (SmbException e) {
-            // TODO handle this
-        }
-
-        return RESULT_OK;
-
-    }
-
-    public static int getInitialFileTree() {
-
-        if (Prefs.checkServerSettings() != Prefs.SETTINGS_OK || Prefs.checkUserSettings() != Prefs.SETTINGS_OK) {
-            // TODO handle this
-        }
-
-        mCurrentPath = String.format("smb://%s;%s:%s@%s/%s/",
+        mCurrentPath = String.format("smb://%s;%s:%s@%s%s",
                 Prefs.getDomain(),
                 Prefs.getUsername(),
                 Prefs.getPassword(),
                 Prefs.getServer(),
                 Prefs.getRoot());
+
+        mBreadCrumbs.add(new BreadCrumb(mCurrentPath));
+
+        return getFileTree();
+    }
+
+    public static int goForwardTo(String path) {
+
+        mCurrentPath = path;
+        mBreadCrumbs.add(new BreadCrumb(mCurrentPath));
+
+        return getFileTree();
+    }
+
+    public static int goBack() {
+
+        mCurrentPath = mCurrentPath.replace(mCurrentName, "");
+        mBreadCrumbs.remove(mBreadCrumbs.size()-1);
+
+        return getFileTree();
+
+    }
+
+    public static int goBackTo(String path) {
+
+        boolean keep = true;
+        mCurrentPath = "";
+        for (BreadCrumb crumb : mBreadCrumbs) {
+            if (!keep) {
+                mBreadCrumbs.remove(crumb);
+            } else if (crumb.path == path) {
+                mCurrentPath += crumb.name;
+                keep = false;
+            } else {
+                mCurrentPath += crumb.name;
+            }
+        }
+
+        return getFileTree();
+    }
+
+    private static int getFileTree() {
+
+        if (Prefs.checkServerSettings() != Prefs.SETTINGS_OK || Prefs.checkUserSettings() != Prefs.SETTINGS_OK) {
+            // TODO handle this
+        }
 
         SmbFile smbFiles = null;
         try {
@@ -111,6 +111,7 @@ public class Networking {
         if (smbFiles == null) {
             // TODO handle this
         }
+
         mCurrentName = smbFiles.getName();
 
         mDirs = new ArrayList<>();
@@ -127,6 +128,17 @@ public class Networking {
         }
 
         return RESULT_OK;
+
+    }
+
+    public static String getCurrentPath() {
+        // TODO check for null?
+        return mCurrentPath;
+    }
+
+    public static String getCurrentName() {
+        // TODO check for null?
+        return mCurrentName;
     }
 
     public static ArrayList<SmbFile> getDirs() {

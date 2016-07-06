@@ -11,6 +11,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 
+import com.ccdev.quality.Ignore.AuthSettings;
 import com.ccdev.quality.Utils.Prefs;
 
 /**
@@ -20,8 +21,11 @@ import com.ccdev.quality.Utils.Prefs;
 public class SettingsFragment extends Fragment {
     private OnSettingsListener mCallback;
 
+    private static final boolean useAuthSettings = true;
+
     public interface OnSettingsListener {
         void OnSettingsConfirm();
+
         void OnSettingsCancel();
     }
 
@@ -112,6 +116,18 @@ public class SettingsFragment extends Fragment {
         }
 
         mRememberMeInput.setChecked(mRememberMe);
+
+        try {
+            if (useAuthSettings) {
+                mDomainInput.setText(AuthSettings.DOMAIN);
+                mServerInput.setText(AuthSettings.SERVER);
+                mRootInput.setText(AuthSettings.ROOT);
+                mUsernameInput.setText(AuthSettings.USERNAME);
+                mPasswordInput.setText(AuthSettings.PASSWORD);
+            }
+        } catch (ClassCastException e) {
+            // AuthSettings not present (ignored in git)
+        }
     }
 
     private void confirm() {

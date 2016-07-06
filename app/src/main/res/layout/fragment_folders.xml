@@ -34,22 +34,11 @@
         </LinearLayout>
     </HorizontalScrollView>
 
-    <!--
-    <ListView
-        android:id="@+id/folders_list"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginBottom="16dp"
-        app:layout_constraintBottom_toTopOf="@+id/folders_newFolder"
-        app:layout_constraintLeft_toLeftOf="@+id/folders_layout"
-        app:layout_constraintRight_toRightOf="@+id/folders_layout"
-        app:layout_constraintTop_toBottomOf="@+id/folders_breadcrumbs_container">
-        -->
     <ScrollView
         android:id="@+id/folders_scroll"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="14dp"
         app:layout_constraintBottom_toTopOf="@+id/folders_newFolder"
         app:layout_constraintLeft_toLeftOf="@+id/folders_layout"
         app:layout_constraintRight_toRightOf="@+id/folders_layout"
@@ -68,7 +57,7 @@
         android:id="@+id/folders_newFolder"
         android:layout_width="60dp"
         android:layout_height="60dp"
-        android:layout_marginLeft="16dp"
+        android:layout_marginLeft="14dp"
         android:background="@drawable/folder"
         app:layout_constraintBottom_toBottomOf="@+id/folders_layout"
         app:layout_constraintLeft_toLeftOf="@+id/folders_layout" />
@@ -91,12 +80,4 @@
         app:layout_constraintBottom_toBottomOf="@+id/folders_layout"
         app:layout_constraintRight_toRightOf="@+id/folders_layout" />
 
-    <ImageView
-        android:id="@+id/folders_imgTest"
-        android:layout_width="80dp"
-        android:layout_height="80dp"
-        app:layout_constraintBottom_toBottomOf="@+id/folders_layout"
-        app:layout_constraintTop_toTopOf="@+id/folders_layout"
-        app:layout_constraintRight_toRightOf="@+id/folders_layout"
-        app:layout_constraintLeft_toLeftOf="@+id/folders_layout"/>
 </android.support.constraint.ConstraintLayout>

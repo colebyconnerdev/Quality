@@ -2,6 +2,7 @@ package com.ccdev.quality.Utils;
 
 import android.content.Context;
 
+import com.ccdev.quality.Ignore.AuthSettings;
 import com.securepreferences.SecurePreferences;
 
 /**
@@ -10,7 +11,6 @@ import com.securepreferences.SecurePreferences;
 
 public class Prefs {
 
-    private static final String SECRET_KEY = "zapUF6WnFloXgyk54Fu6wmwSU005JYsqoeoirP29QePSgSnigDuFnqrvWHP6Tn2";
     private static final String FILE_NAME = "quality_prefs";
     private static final String SERVER = "server";
     private static final String ROOT = "root";
@@ -37,7 +37,7 @@ public class Prefs {
     private static boolean rememberMe;
 
     public static void getPrefs(Context context) {
-        securePreferences = new SecurePreferences(context, SECRET_KEY, FILE_NAME);
+        securePreferences = new SecurePreferences(context, AuthSettings.SECRET_KEY, FILE_NAME);
         server = securePreferences.getString(SERVER, "");
         root = securePreferences.getString(ROOT, "");
         domain = securePreferences.getString(DOMAIN, "");

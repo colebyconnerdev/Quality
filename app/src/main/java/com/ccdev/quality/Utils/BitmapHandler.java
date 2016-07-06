@@ -2,6 +2,7 @@ package com.ccdev.quality.Utils;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.Handler;
 import android.util.Log;
 
 import java.io.BufferedInputStream;
@@ -54,52 +55,70 @@ public class BitmapHandler {
 
     private static final int UNKNOWN_ERROR = -100;
 
-    public static int createOrGetThumbnail(String pathToParent, String fileName, Bitmap bitmap) {
+    public static class HandlerItem {
+        Bitmap bitmap;
+        String pathToParent;
+        String pathToThumbDir;
+        String pathToFile;
+        String pathToThumb;
+        String fileName;
 
-        Log.d(TAG, "TEST: createOrGetThumbnail(");  // TODO remove this
-        Log.d(TAG, "TEST:   pathToParent = " + pathToParent);   // TODO remove this
-        Log.d(TAG, "TEST:   fileName = " + fileName);   // TODO remove this
-        Log.d(TAG, "TEST:   <bitmap>);");   // TODO remove this
+        public HandlerItem(String pathToFile) {
+            String[] split = pathToFile.split("/");
 
-        int result = getThumbsDir(pathToParent);
-        Log.d(TAG, "TEST: getThumbsDir(pathToParent) = " + result); // TODO remove this
-
-        if (result == THUMBS_DIR_EXISTS || result == THUMBS_DIR_CREATED) {
-            result = getThumb(pathToParent, fileName, bitmap);
-            Log.d(TAG, "TEST: getThumb(pathToParent, fileName, <bitmap>) = " + result); // TODO remove this
-        } else if (result == THUMBS_DIR_NOT_CREATED) {
-            Log.d(TAG, "TEST: THUMBS_DIR_NOT_CREATED"); // TODO remove this
-            return THUMBS_DIR_NOT_CREATED;
-        } else {
-            Log.d(TAG, "TEST: UNKNOWN_ERROR");  // TODO remove this
-            return UNKNOWN_ERROR;
-        }
-
-        if (result == THUMB_EXISTS) {
-            Log.d(TAG, "TEST: THUMB_EXISTS");   // TODO remove this
-            return THUMB_DOWNLOADED;
-        } else if (result == THUMB_CREATED) {
-            String pathToThumb = pathToParent + "thumbs/" + fileName;
-            Log.d(TAG, "TEST: THUMB_CREATED, uploadThumb(");    // TODO remove this
-            Log.d(TAG, "TEST:   pathToThumb = " + pathToThumb); // TODO remove this
-            return uploadThumb(pathToThumb, bitmap);
-        } else if (result == THUMB_NOT_CREATED) {
-            Log.d(TAG, "TEST: THUMB_NOT_CREATED");  // TODO remove this
-            return THUMB_NOT_CREATED;
-        } else if (result == THUMB_NOT_DOWNLOADED) {
-            Log.d(TAG, "TEST: THUMB_NOT_DOWNLOADED");   // TODO remove this
-            return THUMB_NOT_DOWNLOADED;
-        } else {
-            Log.d(TAG, "TEST: UNKNOWN_ERROR");  // TODO remove this
-            return UNKNOWN_ERROR;
+            this.pathToFile = pathToFile;
+            fileName = split[split.length-1];
+            pathToParent = pathToFile.replace(fileName, "");
+            pathToThumbDir = pathToParent + "thumbs/";
+            pathToThumb = pathToThumbDir + fileName;
         }
     }
 
-    private static int uploadThumb(String pathToFile, Bitmap bitmap) {
+    public static Bitmap createOrGetThumbnail(String pathToFile) { //, String pathToParent, String fileName) {
+
+        // TODO validation
+
+        Log.d(TAG, "TEST: createOrGetThumbnail(");  // TODO remove this
+        Log.d(TAG, "TEST:   pathToFile = " + pathToFile);   // TODO remove this
+        Log.d(TAG, "TEST:   <bitmap>);");   // TODO remove this
+
+        HandlerItem item = new HandlerItem(pathToFile);
+
+        int result = getThumbsDir(item);
+        Log.d(TAG, "TEST: getThumbsDir(pathToParent) = " + result); // TODO remove this
+
+        if (result == THUMBS_DIR_EXISTS || result == THUMBS_DIR_CREATED) {
+            result = getThumb(item);
+            Log.d(TAG, "TEST: getThumb(pathToParent, fileName, <bitmap>) = " + result); // TODO remove this
+        } else if (result == THUMBS_DIR_NOT_CREATED) {
+            Log.d(TAG, "TEST: THUMBS_DIR_NOT_CREATED"); // TODO remove this
+            return null;
+        } else {
+            Log.d(TAG, "TEST: UNKNOWN_ERROR");  // TODO remove this
+            return null;
+        }
+
+        if (result == THUMB_DOWNLOADED) {
+            Log.d(TAG, "TEST: THUMB_DOWNLOADED");   // TODO remove this
+            return item.bitmap;
+        } else if (result == THUMB_CREATED) {
+            Log.d(TAG, "TEST: THUMB_CREATED, uploadThumb(");    // TODO remove this
+            Log.d(TAG, "TEST:   pathToThumb = " + item.pathToThumb); // TODO remove this
+            uploadThumb(item); // TODO move this to thread?
+            return item.bitmap;
+        } else {
+            Log.d(TAG, "TEST: UNKNOWN_ERROR");  // TODO remove this
+            return null;
+        }
+    }
+
+    private static int uploadThumb(HandlerItem item) {
         BufferedOutputStream outputStream;
 
+        Log.d(TAG, "uploadThumb: " + item.pathToThumb); // TODO remove this
+
         try {
-            outputStream = new BufferedOutputStream(new SmbFileOutputStream(pathToFile), BUFFER_SIZE);
+            outputStream = new BufferedOutputStream(new SmbFileOutputStream(item.pathToThumb), BUFFER_SIZE);
         } catch (MalformedURLException e) {
             Log.d(TAG, e.toString());
             return MALFORMED_URL_EXCEPTION;
@@ -112,7 +131,14 @@ public class BitmapHandler {
         }
 
         // TODO detect file type
-        boolean result = bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, outputStream);
+        boolean result = item.bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, outputStream);
+
+        try {
+            outputStream.close();
+        } catch (java.io.IOException e) {
+            Log.d(TAG, e.toString());
+            // no need to alert
+        }
 
         if (result == true) {
             return THUMB_UPLOADED;
@@ -143,20 +169,18 @@ public class BitmapHandler {
         return inSampleSize;
     }
 
-    private static int getThumb(String pathToParent, String fileName, Bitmap bitmap) {
+    private static int getThumb(HandlerItem item) {
         BufferedInputStream inputStream;
-        String pathToThumb = pathToParent + "thumbs/" + fileName;
-        String pathToOriginal = pathToParent + fileName;
 
         int status;
         try {
-            SmbFile smbFile = new SmbFile(pathToThumb);
+            SmbFile smbFile = new SmbFile(item.pathToThumb);
             if (!smbFile.exists()) {
                 status = THUMB_NOT_EXISTS;
-                inputStream = new BufferedInputStream(new SmbFileInputStream(pathToOriginal), BUFFER_SIZE);
+                inputStream = new BufferedInputStream(new SmbFileInputStream(item.pathToFile), BUFFER_SIZE);
             } else {
                 status = THUMB_EXISTS;
-                inputStream = new BufferedInputStream(new SmbFileInputStream(pathToThumb), BUFFER_SIZE);
+                inputStream = new BufferedInputStream(new SmbFileInputStream(item.pathToThumb), BUFFER_SIZE);
             }
         } catch (MalformedURLException e) {
             Log.d(TAG, e.toString());
@@ -180,7 +204,7 @@ public class BitmapHandler {
             options.inSampleSize = calculateInSampleSize(options, THUMB_WIDTH, THUMB_HEIGHT);
 
             try {
-                inputStream = new BufferedInputStream(new SmbFileInputStream(pathToThumb), BUFFER_SIZE);
+                inputStream = new BufferedInputStream(new SmbFileInputStream(item.pathToFile), BUFFER_SIZE);
             } catch (MalformedURLException e) {
                 Log.d(TAG, e.toString());
                 return MALFORMED_URL_EXCEPTION;
@@ -193,7 +217,7 @@ public class BitmapHandler {
             }
         }
 
-        bitmap = BitmapFactory.decodeStream(inputStream, null, options);
+        item.bitmap = BitmapFactory.decodeStream(inputStream, null, options);
 
         try {
             inputStream.close();
@@ -202,24 +226,23 @@ public class BitmapHandler {
             // no need to return error
         }
 
-        if (bitmap != null) {
+        if (item.bitmap != null) {
             return (status == THUMB_NOT_EXISTS) ? THUMB_CREATED : THUMB_DOWNLOADED;
         } else {
             return (status == THUMB_NOT_EXISTS) ? THUMB_NOT_CREATED : THUMB_NOT_DOWNLOADED;
         }
     }
 
-    private static int getThumbsDir(String pathToParent) {
+    private static int getThumbsDir(HandlerItem item) {
         SmbFile parentDir, thumbDir;
-        String pathToThumb = pathToParent + "thumbs/";
 
         try {
-            parentDir = new SmbFile(pathToParent);
+            parentDir = new SmbFile(item.pathToParent);
             if (!parentDir.exists()) {
                 return PARENT_DIR_NOT_EXISTS;
             }
 
-            thumbDir = new SmbFile(pathToThumb);
+            thumbDir = new SmbFile(item.pathToThumbDir);
             if (thumbDir.exists()) {
                 return THUMBS_DIR_EXISTS;
             }
@@ -232,8 +255,9 @@ public class BitmapHandler {
         }
 
         try {
-            thumbDir.setAttributes(SmbFile.ATTR_HIDDEN);
+            //thumbDir.setAttributes(SmbFile.ATTR_HIDDEN);
             thumbDir.mkdir();
+            thumbDir.setAttributes(SmbFile.ATTR_HIDDEN);
         } catch (SmbException e) {
             Log.d(TAG, e.toString());
             return SMB_EXCEPTION;

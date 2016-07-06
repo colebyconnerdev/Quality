@@ -1,10 +1,7 @@
 package com.ccdev.quality;
 
-import android.annotation.TargetApi;
-import android.app.ActionBar;
 import android.content.Context;
-import android.graphics.drawable.AnimationDrawable;
-import android.os.Build;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.ContactsContract;
@@ -12,31 +9,24 @@ import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout;
 import android.support.v4.app.Fragment;
 import android.util.Log;
-import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import com.ccdev.quality.Utils.BitmapDownloader;
+import com.ccdev.quality.Utils.BitmapHandler;
 import com.ccdev.quality.Utils.Networking;
 import com.ccdev.quality.Utils.Prefs;
 
 import org.w3c.dom.Text;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 
 import jcifs.smb.SmbException;
@@ -49,30 +39,15 @@ import jcifs.smb.SmbFile;
 // TODO this class will need cleaned up
 public class FoldersFragment extends Fragment {
 
-    private Handler mHandler = new Handler();
-    private OnFoldersListener mCallback;
-
     private TextView mHeader;
     private LinearLayout mBreadCrumbs, mFolderList;
     private Button mNewFolder, mNewScan, mNewPhoto;
 
-    private ImageView mTest;
-
     private ArrayList<TextView> mBreadCrumbViews;
-
-    public interface OnFoldersListener {
-        void todo();
-    }
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-
-        try {
-            mCallback = (OnFoldersListener) context;
-        } catch (ClassCastException e) {
-            throw new ClassCastException(context.toString() + " must implement OnFoldersListener");
-        }
     }
 
     @Nullable
@@ -92,8 +67,6 @@ public class FoldersFragment extends Fragment {
         mNewScan = (Button) getView().findViewById(R.id.folders_newScan);
         mNewPhoto = (Button) getView().findViewById(R.id.folders_newPhoto);
 
-        mTest = (ImageView) getView().findViewById(R.id.folders_imgTest);
-
         mBreadCrumbViews = new ArrayList<>();
 
         getView().setFocusableInTouchMode(true);
@@ -102,117 +75,66 @@ public class FoldersFragment extends Fragment {
             @Override
             public boolean onKey(View v, int keyCode, KeyEvent event) {
                 if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
-                    // TODO cancel downloads - Handler.getLooper().quit() ???
-                    switch(Networking.goBack()) {
-                        case Networking.RESULT_OK:
-                            mHandler.post(populate);
-                            return true;
-                        default:
-                            // TODO handle errors
-                            return false;
-                    }
+                    return navigateBack();
                 } else {
                     return false;
                 }
             }
         });
 
-        mHandler.post(populate);
+        populate();
     }
 
-    private Runnable populate = new Runnable() {
-        @Override
-        public void run() {
+    private boolean navigateBack() {
 
-            if (Networking.getDirs().size() == 0) {
-                // TODO handle this
-            }
+        // TODO do we go back?
 
-            if (Networking.getFiles().size() == 0) {
-                // TODO handle this
-            }
+        return false;
+    }
 
-            mFolderList.removeAllViews();
-
-            mHeader.setText(Networking.getCurrentName());
-
-            for (SmbFile smbFile : Networking.getDirsFiles()) {
-                addFoldersItem(smbFile);
-            }
-        }
-    };
-
-    private void addBreadCrumbs() {
-
-        // TODO there has got to be a better way to do this...
-
-        final String rootPath = String.format("smb://%s;%s:%s@%s/%s",
-                Prefs.getDomain(), Prefs.getUsername(), Prefs.getPassword(), Prefs.getServer(), Prefs.getRoot());
-        String[] splits = Prefs.getRoot().split("/");
-        String rootName = splits[splits.length-1];
-
-        TextView newCrumb = new TextView(getContext());
-        newCrumb.setBackgroundResource(R.drawable.breadcrumbs);
-        newCrumb.setText(rootName);
-        newCrumb.setOnClickListener(new View.OnClickListener() {
+    private void populate() {
+        getActivity().runOnUiThread(new Runnable() {
             @Override
-            public void onClick(View v) {
-                switch(Networking.getFileTree(rootPath)) {
-                    case Networking.RESULT_OK:
-                        int pos = mBreadCrumbViews.indexOf(v);
-                        while (mBreadCrumbViews.get(pos) != null) {
-                            mBreadCrumbViews.remove(pos);
-                        }
-                        mHandler.post(populate);
-                        break;
-                    default:
-                        // TODO handle errors
+            public void run() {
+                mFolderList.removeAllViews();
+                mHeader.setText(Networking.getCurrentName().substring(0, Networking.getCurrentName().length()-1));
+
+                for (SmbFile smbFile : Networking.getDirsFiles()) {
+                    addFoldersItem(smbFile);
                 }
             }
         });
-
-        mBreadCrumbs.addView(newCrumb);
-        mBreadCrumbViews.add(newCrumb);
-
-        String path = rootPath;
-        splits = Networking.getCurrentPath().split(rootPath + "/");
-        if (splits.length > 0) {
-            for (int i = 0; i < splits.length; i++) {
-                path += "/" + splits[i];
-                final String newPath = path;
-                newCrumb = new TextView(getContext());
-                newCrumb.setBackgroundResource(R.drawable.breadcrumbs);
-                newCrumb.setText(splits[i]);
-                newCrumb.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        switch(Networking.getFileTree(newPath)) {
-                            case Networking.RESULT_OK:
-                                int pos = mBreadCrumbViews.indexOf(v);
-                                while (mBreadCrumbViews.get(pos) != null) {
-                                    mBreadCrumbViews.remove(pos);
-                                }
-                                mHandler.post(populate);
-                                break;
-                            default:
-                                // TODO handle errors
-                        }
-                    }
-                });
-
-                mBreadCrumbs.addView(newCrumb);
-                mBreadCrumbViews.add(newCrumb);
-            }
-        }
     }
 
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-    private void removeOnGlobalLayoutListener(View v, ViewTreeObserver.OnGlobalLayoutListener listener) {
-        if (Build.VERSION.SDK_INT < 16) {
-            v.getViewTreeObserver().removeGlobalOnLayoutListener(listener);
-        } else {
-            v.getViewTreeObserver().removeOnGlobalLayoutListener(listener);
+    private void setThumbnail(final ImageView thumbnailView,
+                              final ProgressBar loadingView, final Bitmap bitmap) {
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                loadingView.setVisibility(View.GONE);
+                thumbnailView.setImageBitmap(bitmap);
+            }
+        });
+    }
+
+    private void addBreadCrumbs() {
+
+        for (int i = mBreadCrumbs.getChildCount(); i < Networking.getBreadCrumbCount(); i++) {
+
+            TextView newCrumb = new TextView(getContext());
+            newCrumb.setBackgroundResource(R.drawable.breadcrumbs);
+            newCrumb.setText(Networking.getBreadCrumbAt(i).getName());
+            newCrumb.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    mBreadCrumbViews.remove(v);
+                    // Networking.goBackTo(..)
+                    // Networking.getBreadCrumbAt(i).getPath()
+                    // if ^^ == 0, populate()
+                }
+            });
         }
+
     }
 
     private void addFoldersItem(final SmbFile smbFile) {
@@ -227,28 +149,27 @@ public class FoldersFragment extends Fragment {
 
         try {
             if (smbFile.isDirectory()) {
+                fileName.setText(smbFile.getName().substring(0, smbFile.getName().length() - 1));
+                fileDetails.setText("");
                 loading.setVisibility(View.GONE);
                 thumbnail.setBackgroundResource(R.drawable.item_folder);
             } else {
-                // TODO this breaks the thumbnails, way too slow
-//                ViewTreeObserver vto = itemsLayout.getViewTreeObserver();
-//                vto.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-//                    @Override
-//                    public void onGlobalLayout() {
-//                        if (itemsLayout.getVisibility() == View.VISIBLE) {
-//                            removeOnGlobalLayoutListener(itemsLayout, this);
-//                            BitmapDownloader.loadBitmap(smbFile.getPath(), loading, thumbnail, fileDetails, thumbnail.getWidth(), thumbnail.getHeight());
-//                        }
-//                    }
-//                });
+                fileName.setText(smbFile.getName());
+                SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yy hh:mm aa");
+                fileDetails.setText(dateFormat.format(smbFile.getDate()));
+
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Bitmap bitmap = BitmapHandler.createOrGetThumbnail(smbFile.getPath());
+                        setThumbnail(thumbnail, loading, bitmap);
+                    }
+                }).start();
             }
         } catch (SmbException e) {
             Log.d("TEST", e.toString());
             // TODO handle this
         }
-
-        fileName.setText(smbFile.getName());//.substring(0, 5));
-        fileDetails.setText("details");          // TODO get details
 
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -257,6 +178,7 @@ public class FoldersFragment extends Fragment {
             }
         });
 
+        container.setTag(smbFile.getPath());
         container.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -267,14 +189,22 @@ public class FoldersFragment extends Fragment {
                             if (smbFile.isDirectory()) {
                                 switch (Networking.getFileTree(smbFile.getPath())) {
                                     case Networking.RESULT_OK:
-                                        mHandler.post(populate);
+                                        populate();
                                         break;
                                     default:
                                         // TODO handle errors
                                 }
                             } else {
-                                String newPath = smbFile.getPath().replace(smbFile.getName(), "thumbs/" + smbFile.getName());
-                                BitmapDownloader.loadBitmap(newPath, loading, thumbnail, fileDetails, thumbnail.getWidth(), thumbnail.getHeight());
+                                final Bitmap bitmap = BitmapHandler.createOrGetThumbnail(smbFile.getPath());
+                                if (bitmap != null) {
+                                    getActivity().runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            loading.setVisibility(View.GONE);
+                                            thumbnail.setImageBitmap(bitmap);
+                                        }
+                                    });
+                                }
                             }
                         } catch (SmbException e) {
                             Log.d("TEST", e.toString());
