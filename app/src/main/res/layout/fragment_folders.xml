@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/folders_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_margin="16dp">
+
+    <TextView
+        android:id="@+id/folders_header"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@drawable/text_underline"
+        android:text="[Header]"
+        app:layout_constraintLeft_toLeftOf="@+id/folders_layout"
+        app:layout_constraintRight_toRightOf="@+id/folders_layout"
+        app:layout_constraintTop_toTopOf="@+id/folders_layout" />
+
+    <HorizontalScrollView
+        android:id="@+id/folders_breadcrumbs_container"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        app:layout_constraintLeft_toLeftOf="@+id/folders_layout"
+        app:layout_constraintRight_toRightOf="@+id/folders_layout"
+        app:layout_constraintTop_toBottomOf="@+id/folders_header">
+
+        <LinearLayout
+            android:id="@+id/folders_breadcrumbs"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!--
+    <ListView
+        android:id="@+id/folders_list"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toTopOf="@+id/folders_newFolder"
+        app:layout_constraintLeft_toLeftOf="@+id/folders_layout"
+        app:layout_constraintRight_toRightOf="@+id/folders_layout"
+        app:layout_constraintTop_toBottomOf="@+id/folders_breadcrumbs_container">
+        -->
+    <ScrollView
+        android:id="@+id/folders_scroll"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toTopOf="@+id/folders_newFolder"
+        app:layout_constraintLeft_toLeftOf="@+id/folders_layout"
+        app:layout_constraintRight_toRightOf="@+id/folders_layout"
+        app:layout_constraintTop_toBottomOf="@+id/folders_breadcrumbs_container">
+
+        <LinearLayout
+            android:id="@+id/folders_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+        </LinearLayout>
+    </ScrollView>
+
+    <Button
+        android:id="@+id/folders_newFolder"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginLeft="16dp"
+        android:background="@drawable/folder"
+        app:layout_constraintBottom_toBottomOf="@+id/folders_layout"
+        app:layout_constraintLeft_toLeftOf="@+id/folders_layout" />
+
+    <Button
+        android:id="@+id/folders_newScan"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:background="@drawable/qr"
+        app:layout_constraintBottom_toBottomOf="@+id/folders_layout"
+        app:layout_constraintLeft_toRightOf="@+id/folders_newFolder"
+        app:layout_constraintRight_toLeftOf="@+id/folders_newPhoto" />
+
+    <Button
+        android:id="@+id/folders_newPhoto"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginRight="16dp"
+        android:background="@drawable/camera"
+        app:layout_constraintBottom_toBottomOf="@+id/folders_layout"
+        app:layout_constraintRight_toRightOf="@+id/folders_layout" />
+
+    <ImageView
+        android:id="@+id/folders_imgTest"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        app:layout_constraintBottom_toBottomOf="@+id/folders_layout"
+        app:layout_constraintTop_toTopOf="@+id/folders_layout"
+        app:layout_constraintRight_toRightOf="@+id/folders_layout"
+        app:layout_constraintLeft_toLeftOf="@+id/folders_layout"/>
+</android.support.constraint.ConstraintLayout>
