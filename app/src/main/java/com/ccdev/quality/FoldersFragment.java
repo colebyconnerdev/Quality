@@ -3,8 +3,6 @@ package com.ccdev.quality;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Bundle;
-import android.os.Handler;
-import android.provider.ContactsContract;
 import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout;
 import android.support.v4.app.Fragment;
@@ -21,13 +19,8 @@ import android.widget.TextView;
 
 import com.ccdev.quality.Utils.BitmapHandler;
 import com.ccdev.quality.Utils.Networking;
-import com.ccdev.quality.Utils.Prefs;
 
-import org.w3c.dom.Text;
-
-import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 
 import jcifs.smb.SmbException;
 import jcifs.smb.SmbFile;
@@ -38,16 +31,26 @@ import jcifs.smb.SmbFile;
 
 // TODO this class will need cleaned up
 public class FoldersFragment extends Fragment {
+    private OnFoldersListener mCallback;
 
     private TextView mHeader;
-    private LinearLayout mBreadCrumbs, mFolderList;
+    private LinearLayout mBreadCrumbViews, mFolderList;
     private Button mNewFolder, mNewScan, mNewPhoto;
 
-    private ArrayList<TextView> mBreadCrumbViews;
+    public interface OnFoldersListener {
+        void OnShowPhoto(String pathToFile);
+    }
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
+
+        try {
+            mCallback = (OnFoldersListener) context;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(context.toString()
+                    + " must implement OnFoldersListener");
+        }
     }
 
     @Nullable
@@ -62,12 +65,10 @@ public class FoldersFragment extends Fragment {
 
         mHeader = (TextView) getView().findViewById(R.id.folders_header);
         mFolderList = (LinearLayout) getView().findViewById(R.id.folders_list);
-        mBreadCrumbs = (LinearLayout) getView().findViewById(R.id.folders_breadcrumbs);
+        mBreadCrumbViews = (LinearLayout) getView().findViewById(R.id.folders_breadcrumbs);
         mNewFolder = (Button) getView().findViewById(R.id.folders_newFolder);
         mNewScan = (Button) getView().findViewById(R.id.folders_newScan);
         mNewPhoto = (Button) getView().findViewById(R.id.folders_newPhoto);
-
-        mBreadCrumbViews = new ArrayList<>();
 
         getView().setFocusableInTouchMode(true);
         getView().requestFocus();
@@ -75,21 +76,20 @@ public class FoldersFragment extends Fragment {
             @Override
             public boolean onKey(View v, int keyCode, KeyEvent event) {
                 if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
-                    return navigateBack();
+                    if (Networking.getBreadCrumbCount() > 1) {
+                        mBreadCrumbViews.removeViewAt(mBreadCrumbViews.getChildCount() - 1);
+                        Networking.goBack();
+                        populate();
+                    }
+                    return true;
                 } else {
                     return false;
                 }
             }
         });
 
+        addBreadCrumb();
         populate();
-    }
-
-    private boolean navigateBack() {
-
-        // TODO do we go back?
-
-        return false;
     }
 
     private void populate() {
@@ -117,24 +117,39 @@ public class FoldersFragment extends Fragment {
         });
     }
 
-    private void addBreadCrumbs() {
+    private void addBreadCrumb() {
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
 
-        for (int i = mBreadCrumbs.getChildCount(); i < Networking.getBreadCrumbCount(); i++) {
+                TextView newCrumb = new TextView(getContext());
+                newCrumb.setBackgroundResource(R.drawable.breadcrumbs);
+                newCrumb.setTag(Networking.getLastBreadCrumb());
+                newCrumb.setText(Networking.getLastBreadCrumb().getName());
+                newCrumb.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Networking.BreadCrumb breadCrumb = (Networking.BreadCrumb) v.getTag();
+                        if (Networking.goBackTo(breadCrumb.getPath()) == Networking.RESULT_OK) {
+                            for (int i = mBreadCrumbViews.getChildCount() - 1; i >= 0; i--) {
+                                Networking.BreadCrumb testCrumb = (Networking.BreadCrumb) mBreadCrumbViews.getChildAt(i).getTag();
+                                if (testCrumb.getPath() == breadCrumb.getPath()) {
+                                    populate();
+                                    break;
+                                } else {
+                                    mBreadCrumbViews.removeViewAt(i);
+                                }
+                            }
+                            if (mBreadCrumbViews.getChildCount() == 0) {
+                                // TODO error
+                            }
+                        }
+                    }
+                });
 
-            TextView newCrumb = new TextView(getContext());
-            newCrumb.setBackgroundResource(R.drawable.breadcrumbs);
-            newCrumb.setText(Networking.getBreadCrumbAt(i).getName());
-            newCrumb.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    mBreadCrumbViews.remove(v);
-                    // Networking.goBackTo(..)
-                    // Networking.getBreadCrumbAt(i).getPath()
-                    // if ^^ == 0, populate()
-                }
-            });
-        }
-
+                mBreadCrumbViews.addView(newCrumb);
+            }
+        });
     }
 
     private void addFoldersItem(final SmbFile smbFile) {
@@ -178,7 +193,7 @@ public class FoldersFragment extends Fragment {
             }
         });
 
-        container.setTag(smbFile.getPath());
+        //container.setTag(smbFile.getPath());
         container.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -187,24 +202,16 @@ public class FoldersFragment extends Fragment {
                     public void run() {
                         try {
                             if (smbFile.isDirectory()) {
-                                switch (Networking.getFileTree(smbFile.getPath())) {
+                                switch (Networking.goTo(smbFile.getPath())) {
                                     case Networking.RESULT_OK:
+                                        addBreadCrumb();
                                         populate();
                                         break;
                                     default:
                                         // TODO handle errors
                                 }
                             } else {
-                                final Bitmap bitmap = BitmapHandler.createOrGetThumbnail(smbFile.getPath());
-                                if (bitmap != null) {
-                                    getActivity().runOnUiThread(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            loading.setVisibility(View.GONE);
-                                            thumbnail.setImageBitmap(bitmap);
-                                        }
-                                    });
-                                }
+                                mCallback.OnShowPhoto(smbFile.getPath());
                             }
                         } catch (SmbException e) {
                             Log.d("TEST", e.toString());

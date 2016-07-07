@@ -74,7 +74,25 @@ public class BitmapHandler {
         }
     }
 
-    public static Bitmap createOrGetThumbnail(String pathToFile) { //, String pathToParent, String fileName) {
+    public static Bitmap getFullScaleImage(String pathToFile) {
+        BufferedInputStream inputStream;
+
+        // TODO validation on all of this
+        try {
+            SmbFile smbFile = new SmbFile(pathToFile);
+            inputStream = new BufferedInputStream(smbFile.getInputStream());
+        } catch (MalformedURLException e) {
+            Log.d(TAG, e.toString());
+            return null;
+        } catch (java.io.IOException e) {
+            Log.d(TAG, e.toString());
+            return null;
+        }
+        
+        return BitmapFactory.decodeStream(inputStream);
+    }
+
+    public static Bitmap createOrGetThumbnail(String pathToFile) {
 
         // TODO validation
 

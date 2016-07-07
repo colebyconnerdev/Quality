@@ -78,7 +78,7 @@ public class LoginFragment extends Fragment{
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        mCallback.OnLoginResult(Networking.getInitialFileTree());
+                        mCallback.OnLoginResult(Networking.getRoot());
                     }
                 }).start();
             }

@@ -5,18 +5,46 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 
 import com.ccdev.quality.Utils.Networking;
 import com.ccdev.quality.Utils.Prefs;
 
 public class MainActivity extends AppCompatActivity
-    implements LoginFragment.OnLoginListener, SettingsFragment.OnSettingsListener {
+    implements LoginFragment.OnLoginListener, SettingsFragment.OnSettingsListener,
+        FoldersFragment.OnFoldersListener, PhotoViewFragment.OnPhotoViewListener {
 
     private DrawerLayout mDrawerLayout;
 
     private FragmentManager mFragmentManager;
-    private Fragment mLoginFragment, mFoldersFragment, mSettingsFragment;
+    private Fragment mLoginFragment, mFoldersFragment, mSettingsFragment, mPhotoViewFragment;
+
+    @Override
+    public void OnShowPhoto(String pathToFile) {
+
+        Bundle bundle = new Bundle();
+        bundle.putString(PhotoViewFragment.IMAGE_PATH, pathToFile);
+        mPhotoViewFragment.setArguments(bundle);
+
+        mFragmentManager
+                .beginTransaction()
+                .add(R.id.content_frame, mPhotoViewFragment)
+                .addToBackStack(null)
+                .commit();
+    }
+
+    // TODO figure out the back button
+
+    @Override
+    public void OnRemovePhotoView() {
+        mFragmentManager.popBackStack();
+    }
+
+    @Override
+    public void OnNoPhotoPath() {
+        mFragmentManager.popBackStack();
+    }
 
     @Override
     public void OnLoginResult(int status) {
@@ -62,7 +90,7 @@ public class MainActivity extends AppCompatActivity
         new Thread(new Runnable() {
             @Override
             public void run() {
-                switch (Networking.getInitialFileTree()) {
+                switch (Networking.getRoot()) {
                     case Networking.RESULT_OK:
                         mFragmentManager
                                 .beginTransaction()
@@ -91,6 +119,7 @@ public class MainActivity extends AppCompatActivity
         mLoginFragment = new LoginFragment();
         mFoldersFragment = new FoldersFragment();
         mSettingsFragment = new SettingsFragment();
+        mPhotoViewFragment = new PhotoViewFragment();
 
         mFragmentManager = getSupportFragmentManager();
         determineLandingPage();
@@ -121,7 +150,7 @@ public class MainActivity extends AppCompatActivity
         new Thread(new Runnable() {
             @Override
             public void run() {
-                switch (Networking.getInitialFileTree()) {
+                switch (Networking.getRoot()) {
                     case Networking.RESULT_OK:
                         mFragmentManager
                                 .beginTransaction()

@@ -14,8 +14,8 @@
         android:background="@drawable/text_underline"
         android:text="[Header]"
         app:layout_constraintLeft_toLeftOf="@+id/folders_layout"
-        app:layout_constraintRight_toRightOf="@+id/folders_layout"
-        app:layout_constraintTop_toTopOf="@+id/folders_layout" />
+        app:layout_constraintTop_toTopOf="@+id/folders_layout"
+        app:layout_constraintRight_toRightOf="@+id/folders_layout" />
 
     <HorizontalScrollView
         android:id="@+id/folders_breadcrumbs_container"
@@ -23,8 +23,8 @@
         android:layout_height="wrap_content"
         android:scrollbars="none"
         app:layout_constraintLeft_toLeftOf="@+id/folders_layout"
-        app:layout_constraintRight_toRightOf="@+id/folders_layout"
-        app:layout_constraintTop_toBottomOf="@+id/folders_header">
+        app:layout_constraintTop_toBottomOf="@+id/folders_header"
+        app:layout_constraintRight_toRightOf="@+id/folders_layout">
 
         <LinearLayout
             android:id="@+id/folders_breadcrumbs"
@@ -38,11 +38,11 @@
         android:id="@+id/folders_scroll"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginBottom="14dp"
-        app:layout_constraintBottom_toTopOf="@+id/folders_newFolder"
         app:layout_constraintLeft_toLeftOf="@+id/folders_layout"
+        app:layout_constraintTop_toBottomOf="@+id/folders_breadcrumbs_container"
         app:layout_constraintRight_toRightOf="@+id/folders_layout"
-        app:layout_constraintTop_toBottomOf="@+id/folders_breadcrumbs_container">
+        app:layout_constraintBottom_toTopOf="@+id/folders_newFolder"
+        android:layout_marginBottom="14dp">
 
         <LinearLayout
             android:id="@+id/folders_list"
@@ -57,27 +57,39 @@
         android:id="@+id/folders_newFolder"
         android:layout_width="60dp"
         android:layout_height="60dp"
-        android:layout_marginLeft="14dp"
         android:background="@drawable/folder"
-        app:layout_constraintBottom_toBottomOf="@+id/folders_layout"
-        app:layout_constraintLeft_toLeftOf="@+id/folders_layout" />
+        app:layout_constraintLeft_toLeftOf="@+id/folders_layout"
+        android:layout_marginLeft="14dp"
+        android:layout_marginStart="14dp"
+        app:layout_constraintBottom_toBottomOf="@+id/folders_layout" />
 
     <Button
         android:id="@+id/folders_newScan"
         android:layout_width="60dp"
         android:layout_height="60dp"
         android:background="@drawable/qr"
-        app:layout_constraintBottom_toBottomOf="@+id/folders_layout"
         app:layout_constraintLeft_toRightOf="@+id/folders_newFolder"
-        app:layout_constraintRight_toLeftOf="@+id/folders_newPhoto" />
+        app:layout_constraintRight_toLeftOf="@+id/folders_newPhoto"
+        app:layout_constraintBottom_toBottomOf="@+id/folders_layout" />
 
     <Button
         android:id="@+id/folders_newPhoto"
         android:layout_width="60dp"
         android:layout_height="60dp"
-        android:layout_marginRight="16dp"
         android:background="@drawable/camera"
-        app:layout_constraintBottom_toBottomOf="@+id/folders_layout"
-        app:layout_constraintRight_toRightOf="@+id/folders_layout" />
+        app:layout_constraintRight_toRightOf="@+id/folders_layout"
+        android:layout_marginRight="16dp"
+        android:layout_marginEnd="16dp"
+        app:layout_constraintBottom_toBottomOf="@+id/folders_layout" />
+
+    <ImageView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:srcCompat="@android:color/black"
+        tools:layout_editor_absoluteX="-54dp"
+        tools:layout_editor_absoluteY="-38dp"
+        android:id="@+id/imageView"
+        app:layout_constraintLeft_toLeftOf="@+id/folders_layout"
+        app:layout_constraintTop_toTopOf="@+id/folders_layout" />
 
 </android.support.constraint.ConstraintLayout>

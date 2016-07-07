@@ -30,9 +30,9 @@ public class Networking {
 
     private static final String FILES_FILTER = "(?i).*(.tif|.tiff|.gif|.jpeg|.jpg|.png)";
 
-    private static class BreadCrumb {
-        String path;
-        String name;
+    public static class BreadCrumb {
+        private String path;
+        private String name;
 
         public BreadCrumb(String pathToCrumb) {
             String[] split = pathToCrumb.split("/");
@@ -40,6 +40,26 @@ public class Networking {
             path = pathToCrumb;
             name = split[split.length-1];
         }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getPath() {
+            return path;
+        }
+    }
+
+    public static int getBreadCrumbCount() {
+        return mBreadCrumbs.size();
+    }
+
+    public static BreadCrumb getBreadCrumbAt(int index) {
+        return mBreadCrumbs.get(index);
+    }
+
+    public static BreadCrumb getLastBreadCrumb() {
+        return  mBreadCrumbs.get(mBreadCrumbs.size()-1);
     }
 
     public static int getRoot() {
@@ -60,7 +80,7 @@ public class Networking {
         return getFileTree();
     }
 
-    public static int goForwardTo(String path) {
+    public static int goTo(String path) {
 
         mCurrentPath = path;
         mBreadCrumbs.add(new BreadCrumb(mCurrentPath));
@@ -80,15 +100,13 @@ public class Networking {
     public static int goBackTo(String path) {
 
         boolean keep = true;
-        mCurrentPath = "";
-        for (BreadCrumb crumb : mBreadCrumbs) {
-            if (!keep) {
-                mBreadCrumbs.remove(crumb);
-            } else if (crumb.path == path) {
-                mCurrentPath += crumb.name;
-                keep = false;
+        mCurrentPath = path;
+
+        for (int i = mBreadCrumbs.size() - 1; i > 0; i--) {
+            if (mBreadCrumbs.get(i).getPath() == path) {
+                break;
             } else {
-                mCurrentPath += crumb.name;
+                mBreadCrumbs.remove(i);
             }
         }
 
