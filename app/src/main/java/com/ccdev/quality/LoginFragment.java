@@ -22,13 +22,13 @@ public class LoginFragment extends Fragment{
     private OnLoginListener mCallback;
 
     public interface OnLoginListener {
-        void OnLoginResult(int status);
-        void OnLoginSettings();
     }
 
     private EditText mUsernameInput, mPasswordInput;
     private CheckBox mRememberMeInput;
     private Button mLogin, mSettings;
+
+    // TODO this class is not complete
 
     @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
@@ -55,7 +55,6 @@ public class LoginFragment extends Fragment{
         }
     }
 
-    // TODO call when onStart()?
     private void initialize() {
 
         mUsernameInput = (EditText) getView().findViewById(R.id.login_username);
@@ -74,20 +73,13 @@ public class LoginFragment extends Fragment{
                 Prefs.setRememberMe(mRememberMeInput.isChecked());
 
                 // TODO loading dialog?
-
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        mCallback.OnLoginResult(Networking.getRoot());
-                    }
-                }).start();
             }
         });
 
         mSettings.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mCallback.OnLoginSettings();
+                // TODO handle logon
             }
         });
     }

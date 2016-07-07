@@ -2,11 +2,9 @@ package com.ccdev.quality;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,8 +29,7 @@ public class PhotoViewFragment extends Fragment {
     Thread mDownloadThread;
 
     public interface OnPhotoViewListener {
-        void OnRemovePhotoView();
-        void OnNoPhotoPath();
+        void OnPhotoViewError(int errorCode, String errorMessage);
     }
 
     @Override
@@ -47,16 +44,17 @@ public class PhotoViewFragment extends Fragment {
         }
     }
 
+    // TODO add error constants
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         if (getArguments().containsKey(IMAGE_PATH)) {
             mImagePath = getArguments().getString(IMAGE_PATH);
             if (mImagePath.isEmpty()) {
-                mCallback.OnNoPhotoPath();
+                mCallback.OnPhotoViewError(0, "TODO: no path - " + mImagePath);
             }
         } else {
-            mCallback.OnNoPhotoPath();
+            mCallback.OnPhotoViewError(0, "TODO: no path");
         }
 
         return inflater.inflate(R.layout.fragment_photoview, container, false);
@@ -69,30 +67,17 @@ public class PhotoViewFragment extends Fragment {
         mImageView = (ImageView) getView().findViewById(R.id.photo_imageview);
         mProgressBar = (ProgressBar) getView().findViewById(R.id.photo_progressBar);
 
-        mDownloadThread = new Thread(new Runnable() {
+        GlobalThreads.PhotoView.downloadPhotoThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 loadImage(BitmapHandler.getFullScaleImage(mImagePath));
             }
         });
-        mDownloadThread.start();
-
-        getView().setFocusableInTouchMode(true);
-        getView().requestFocus();
-        getView().setOnKeyListener(new View.OnKeyListener() {
-            @Override
-            public boolean onKey(View v, int keyCode, KeyEvent event) {
-                // TODO this hangs, better threading needed
-                mDownloadThread.interrupt();
-                mImageView.setImageBitmap(null);
-                mCallback.OnRemovePhotoView();
-                return true;
-            }
-        });
+        GlobalThreads.PhotoView.downloadPhotoThread.start();
     }
 
     private void loadImage(final Bitmap bitmap) {
-        if (mDownloadThread.isInterrupted() || getActivity() == null) {
+        if (GlobalThreads.PhotoView.downloadPhotoThread.isInterrupted() || getActivity() == null) {
             if (bitmap != null) bitmap.recycle();
             return;
         }

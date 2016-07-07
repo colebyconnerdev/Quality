@@ -12,6 +12,7 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 
 import com.ccdev.quality.Ignore.AuthSettings;
+import com.ccdev.quality.Utils.Networking;
 import com.ccdev.quality.Utils.Prefs;
 
 /**
@@ -23,9 +24,10 @@ public class SettingsFragment extends Fragment {
 
     private static final boolean useAuthSettings = true;
 
+    private Thread mGetFileTreeThread;
+
     public interface OnSettingsListener {
         void OnSettingsConfirm();
-
         void OnSettingsCancel();
     }
 
@@ -143,6 +145,9 @@ public class SettingsFragment extends Fragment {
         if ((rootInput = mRootInput.getText().toString()).isEmpty()) {
             // TODO error?
         } else {
+            if (rootInput.substring(rootInput.length()-2, rootInput.length()-1) != "/") {
+                rootInput += "/";
+            }
             Prefs.setRoot(rootInput);
         }
 
@@ -173,7 +178,15 @@ public class SettingsFragment extends Fragment {
 
         Prefs.commitAll();
 
-        mCallback.OnSettingsConfirm();
+        mGetFileTreeThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if (Networking.getFileTree()) {
+                    mCallback.OnSettingsConfirm();
+                }
+            }
+        });
+        mGetFileTreeThread.start();
     }
 
     private void cancel() {

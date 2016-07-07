@@ -146,6 +146,11 @@ public class Prefs {
         securePreferences.edit().putBoolean(REMEMBER_ME, rememberMe);
     }
 
+    public static String getAuthString() {
+        // TODO check for null
+        return String.format("smb://%s;%s:%s@%s/",domain, username, password, server);
+    }
+
     public static String getServer() {
         return server;
     }

@@ -6,22 +6,25 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Menu;
 
 import com.ccdev.quality.Utils.Networking;
 import com.ccdev.quality.Utils.Prefs;
 
 public class MainActivity extends AppCompatActivity
-    implements LoginFragment.OnLoginListener, SettingsFragment.OnSettingsListener,
+    implements SettingsFragment.OnSettingsListener,
         FoldersFragment.OnFoldersListener, PhotoViewFragment.OnPhotoViewListener {
+    private static final String TAG = "Quality.MainActivity";
+
+    Thread mGetFileTreeThread;
 
     private DrawerLayout mDrawerLayout;
 
     private FragmentManager mFragmentManager;
     private Fragment mLoginFragment, mFoldersFragment, mSettingsFragment, mPhotoViewFragment;
+    private static final String FRAGMENT_FOLDERS = "fragment_folders";
 
     @Override
-    public void OnShowPhoto(String pathToFile) {
+    public void OnFoldersShowPhoto(String pathToFile) {
 
         Bundle bundle = new Bundle();
         bundle.putString(PhotoViewFragment.IMAGE_PATH, pathToFile);
@@ -34,48 +37,50 @@ public class MainActivity extends AppCompatActivity
                 .commit();
     }
 
-    // TODO figure out the back button
-
     @Override
-    public void OnRemovePhotoView() {
-        mFragmentManager.popBackStack();
-    }
+    public void OnFoldersError(int errorCode, String errorMessage) {
+        Log.e(TAG, errorMessage);
 
-    @Override
-    public void OnNoPhotoPath() {
-        mFragmentManager.popBackStack();
-    }
+        // TODO if loading folders first need to go to settings/login
 
-    @Override
-    public void OnLoginResult(int status) {
+        switch (errorCode) {
+            case FoldersFragment.ERROR_GETTING_FILE_TREE:
+                mFragmentManager.popBackStack();
+                break;
+            case FoldersFragment.ERROR_PREFS_MISSING:
+                mFragmentManager.popBackStackImmediate(
+                        FRAGMENT_FOLDERS, FragmentManager.POP_BACK_STACK_INCLUSIVE);
 
-        if (status != Networking.RESULT_OK) {
-            // TODO handle this
+                mFragmentManager
+                        .beginTransaction()
+                        .replace(R.id.content_frame, mSettingsFragment)
+                        .commit();
+                break;
+            case FoldersFragment.INTERRUPTED_POPULATE:
+                mFragmentManager.popBackStack();
+                break;
+            default:
         }
-
-        Prefs.commitUsername();
-        Prefs.commitPassword();
-        Prefs.commitRememberMe();
-
-        mFragmentManager
-                .beginTransaction()
-                .replace(R.id.content_frame, mFoldersFragment)
-                .commit();
     }
 
     @Override
-    public void OnLoginSettings() {
-        // TODO clean up?
-        mFragmentManager
-                .beginTransaction()
-                .replace(R.id.content_frame, mSettingsFragment)
-                .commit();
+    public void OnPhotoViewError(int errorCode, String errorMessage) {
+        Log.e(TAG, errorMessage);
+
+        // TODO fix this interface
+
+        mFragmentManager.popBackStack();
     }
 
     @Override
     public void OnSettingsConfirm() {
         if (Prefs.checkServerSettings() != Prefs.SETTINGS_OK) {
-            // TODO handle this
+            // TODO tell user why they were kicked back
+
+            mFragmentManager
+                    .beginTransaction()
+                    .replace(R.id.content_frame, mSettingsFragment)
+                    .commit();
         }
 
         if (Prefs.checkUserSettings() != Prefs.SETTINGS_OK) {
@@ -85,28 +90,27 @@ public class MainActivity extends AppCompatActivity
                     .commit();
         }
 
-        // TODO loading dialog?
-
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                switch (Networking.getRoot()) {
-                    case Networking.RESULT_OK:
-                        mFragmentManager
-                                .beginTransaction()
-                                .replace(R.id.content_frame, mFoldersFragment)
-                                .commit();
-                        break;
-                    default:
-                        // TODO errors
-                }
-            }
-        }).start();
+        mFragmentManager
+                .beginTransaction()
+                .replace(R.id.content_frame, mFoldersFragment)
+                .commit();
     }
 
     @Override
     public void OnSettingsCancel() {
-        // TODO handle this somehow...
+        // TODO handle this somehow
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (mFoldersFragment.isVisible()) {
+            Networking.goBack();
+            mFragmentManager.popBackStack();
+        } else if (mPhotoViewFragment.isVisible()) {
+
+        } else {
+            //super.onBackPressed();
+        }
     }
 
     @Override
@@ -136,7 +140,7 @@ public class MainActivity extends AppCompatActivity
             return;
         }
 
-        if (Prefs.checkUserSettings() != Prefs.checkServerSettings()) {
+        if (Prefs.checkUserSettings() != Prefs.SETTINGS_OK) {
             // TODO handle this
             mFragmentManager
                     .beginTransaction()
@@ -145,22 +149,19 @@ public class MainActivity extends AppCompatActivity
             return;
         }
 
-        // TODO loading dialog?
-
-        new Thread(new Runnable() {
+        mGetFileTreeThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                switch (Networking.getRoot()) {
-                    case Networking.RESULT_OK:
-                        mFragmentManager
-                                .beginTransaction()
-                                .replace(R.id.content_frame, mFoldersFragment)
-                                .commit();
-                        break;
-                    default:
-                        // TODO errors
+                if (Networking.getFileTree()) {
+                    mFragmentManager
+                            .beginTransaction()
+                            .replace(R.id.content_frame, mFoldersFragment)
+                            .commit();
                 }
             }
-        }).start();
+        });
+        mGetFileTreeThread.start();
+
+        // TODO show loading?
     }
 }

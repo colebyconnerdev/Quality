@@ -5,7 +5,9 @@ import android.widget.Toast;
 
 import java.lang.reflect.Array;
 import java.net.MalformedURLException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Stack;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,27 +20,60 @@ import jcifs.smb.SmbFile;
 
 public class Networking {
 
-    public static final int RESULT_OK = 0;
+    private static int mStatus = -1;
+    private static String mStatusMessage = "";
+    public static int SUCCESS = 0;
+    public static int ERROR_UNKNOWN = -1;
+    public static int ERROR_PREFS_MISSING = -2;
+    public static int ERROR_MALFORMED_URL_EXCEPTION = -3;
+    public static int ERROR_SMB_RETURNED_NULL = -4;
+    public static int ERROR_SMB_EXCEPTION = -5;
+    public static int ERROR_PREVIOUS_PATH_NULL = -6;
 
-    private static ArrayList<SmbFile> mDirs;
-    private static ArrayList<SmbFile> mFiles;
+    private static ArrayList<NetworkLocation> mDirs;
+    private static ArrayList<NetworkLocation> mFiles;
 
-    private static String mCurrentPath;
+    private static Stack<String> mPaths = new Stack<>();
     private static String mCurrentName;
-
-    private static ArrayList<BreadCrumb> mBreadCrumbs = new ArrayList<>();
 
     private static final String FILES_FILTER = "(?i).*(.tif|.tiff|.gif|.jpeg|.jpg|.png)";
 
-    public static class BreadCrumb {
-        private String path;
-        private String name;
+    public static int getStatus() {
+        return mStatus;
+    }
 
-        public BreadCrumb(String pathToCrumb) {
-            String[] split = pathToCrumb.split("/");
+    public static String getStatusMessage() {
+        return mStatusMessage;
+    }
 
-            path = pathToCrumb;
-            name = split[split.length-1];
+    private static void setStatus(int status) {
+        setStatus(status, "");
+    }
+
+    private static void setStatus(int status, String statusMessage) {
+        mStatus = status;
+        mStatusMessage = statusMessage;
+    }
+
+    public static class NetworkLocation {
+        public String name = "";
+        public String path = "";
+        public String details = "";
+        boolean isDir = false;
+
+        private NetworkLocation(String name, String path, boolean isDir) {
+            this(name, path, "", isDir);
+        }
+
+        private NetworkLocation(String name, String path, String details, boolean isDir) {
+            this.name = name;
+            this.path = path;
+            this.details = details;
+            this.isDir = isDir;
+        }
+
+        public boolean isDir() {
+            return isDir;
         }
 
         public String getName() {
@@ -48,110 +83,115 @@ public class Networking {
         public String getPath() {
             return path;
         }
-    }
 
-    public static int getBreadCrumbCount() {
-        return mBreadCrumbs.size();
-    }
-
-    public static BreadCrumb getBreadCrumbAt(int index) {
-        return mBreadCrumbs.get(index);
-    }
-
-    public static BreadCrumb getLastBreadCrumb() {
-        return  mBreadCrumbs.get(mBreadCrumbs.size()-1);
-    }
-
-    public static int getRoot() {
-
-        if (Prefs.checkServerSettings() != Prefs.SETTINGS_OK || Prefs.checkUserSettings() != Prefs.SETTINGS_OK) {
-            // TODO handle this
+        public String getDetails() {
+            return details;
         }
-
-        mCurrentPath = String.format("smb://%s;%s:%s@%s%s",
-                Prefs.getDomain(),
-                Prefs.getUsername(),
-                Prefs.getPassword(),
-                Prefs.getServer(),
-                Prefs.getRoot());
-
-        mBreadCrumbs.add(new BreadCrumb(mCurrentPath));
-
-        return getFileTree();
     }
 
-    public static int goTo(String path) {
-
-        mCurrentPath = path;
-        mBreadCrumbs.add(new BreadCrumb(mCurrentPath));
-
-        return getFileTree();
+    private static void setAllToNull() {
+        mPaths = null;
+        mCurrentName = null;
     }
 
-    public static int goBack() {
-
-        mCurrentPath = mCurrentPath.replace(mCurrentName, "");
-        mBreadCrumbs.remove(mBreadCrumbs.size()-1);
-
-        return getFileTree();
-
+    // TODO better validation
+    public static boolean goBack() {
+        if (mPaths != null && mPaths.size() > 1) {
+            mPaths.pop();
+            return getFileTree(mPaths.peek());
+        } else {
+            setStatus(ERROR_PREVIOUS_PATH_NULL,
+                    "Networking.goBack(): no previous path available");
+            return false;
+        }
     }
 
-    public static int goBackTo(String path) {
-
-        boolean keep = true;
-        mCurrentPath = path;
-
-        for (int i = mBreadCrumbs.size() - 1; i > 0; i--) {
-            if (mBreadCrumbs.get(i).getPath() == path) {
-                break;
-            } else {
-                mBreadCrumbs.remove(i);
+    // TODO better validation
+    public static boolean goBackTo(String path) {
+        if (mPaths != null && mPaths.contains(path)) {
+            while (mPaths.peek() != path) {
+                mPaths.pop();
             }
+            return getFileTree(path);
+        } else {
+            return false;
         }
-
-        return getFileTree();
     }
 
-    private static int getFileTree() {
+    public static boolean getFileTree() {
+        if (Prefs.checkServerSettings() != Prefs.SETTINGS_OK || Prefs.checkUserSettings() != Prefs.SETTINGS_OK) {
+            setAllToNull();
+            setStatus(ERROR_PREFS_MISSING,
+                    "Networking.getFileTree(): server and/or user settings not valid");
+            return false;
+        }
+
+        mPaths = new Stack<>();
+        return getFileTree(Prefs.getAuthString() + Prefs.getRoot());
+    }
+
+    public static boolean getFileTree(String path) {
 
         if (Prefs.checkServerSettings() != Prefs.SETTINGS_OK || Prefs.checkUserSettings() != Prefs.SETTINGS_OK) {
-            // TODO handle this
+            setAllToNull();
+            setStatus(ERROR_PREFS_MISSING,
+                    "Networking.getFileTree(): server and/or user settings not valid");
+            return false;
         }
 
-        SmbFile smbFiles = null;
+        // TODO validation on path
+        mPaths.push(path);
+
+        SmbFile smbRoot;
         try {
-            smbFiles = new SmbFile(mCurrentPath);
+            smbRoot = new SmbFile(path);
         } catch (MalformedURLException e) {
-            // TODO handle this
+            setAllToNull();
+            setStatus(ERROR_MALFORMED_URL_EXCEPTION,
+                    "Networking.getFileTree(): malformed url = " + mPaths.peek());
+            return false;
         }
 
-        if (smbFiles == null) {
-            // TODO handle this
+        if (smbRoot == null) {
+            setAllToNull();
+            setStatus(ERROR_SMB_RETURNED_NULL,
+                    "Networking.getFileTree(): smbRoot is null");
         }
 
-        mCurrentName = smbFiles.getName();
+        mCurrentName = smbRoot.getName();
 
         mDirs = new ArrayList<>();
         mFiles = new ArrayList<>();
 
         try {
-            for (SmbFile smbFile : smbFiles.listFiles()) {
+            for (SmbFile smbFile : smbRoot.listFiles()) {
                 if (smbFile.isHidden()) continue;
-                if (smbFile.isDirectory()) mDirs.add(smbFile);
-                if (smbFile.isFile() && smbFile.getName().matches(FILES_FILTER)) mFiles.add(smbFile);
+
+                if (smbFile.isDirectory()) {
+                    mDirs.add(new NetworkLocation(
+                            smbFile.getName(), smbFile.getPath(), true));
+                }
+
+                if (smbFile.isFile() && smbFile.getName().matches(FILES_FILTER)) {
+                    String date =
+                            new SimpleDateFormat("MM/dd/yyyy hh:mm aa").format(smbFile.getDate());
+                    mFiles.add(new NetworkLocation(
+                            smbFile.getName(), smbFile.getPath(), date, false));
+                }
             }
         } catch (SmbException e) {
-            // TODO handle this
+            setAllToNull();
+            setStatus(ERROR_SMB_EXCEPTION, "Networking.getFileTree(): SmbException " + e.toString());
+            return false;
         }
 
-        return RESULT_OK;
-
+        setStatus(SUCCESS);
+        return true;
     }
 
     public static String getCurrentPath() {
         // TODO check for null?
-        return mCurrentPath;
+        return mPaths.peek();
     }
 
     public static String getCurrentName() {
@@ -159,20 +199,19 @@ public class Networking {
         return mCurrentName;
     }
 
-    public static ArrayList<SmbFile> getDirs() {
-        // TODO if null? sort?
+    public static ArrayList<NetworkLocation> getDirs() {
         return mDirs;
     }
 
-    public static ArrayList<SmbFile> getFiles() {
-        // TODO if null? sort?
+    public static ArrayList<NetworkLocation> getFiles() {
         return mFiles;
     }
 
-    public static ArrayList<SmbFile> getDirsFiles() {
-        ArrayList<SmbFile> newArray = mDirs;
-        newArray.addAll(mFiles);
-
+    public static ArrayList<NetworkLocation> getDirsFiles() {
+        ArrayList<NetworkLocation> newArray = mDirs;
+        for (NetworkLocation file : mFiles) {
+            newArray.add(file);
+        }
         return newArray;
     }
 }
