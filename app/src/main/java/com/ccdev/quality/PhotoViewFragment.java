@@ -17,7 +17,7 @@ import com.ccdev.quality.Utils.BitmapHandler;
  * Created by Coleby on 7/6/2016.
  */
 
-public class PhotoViewFragment extends Fragment {
+public class PhotoViewFragment extends BackHandledFragment {
     private OnPhotoViewListener mCallback;
 
     public static final String IMAGE_PATH = "image_path";
@@ -26,10 +26,18 @@ public class PhotoViewFragment extends Fragment {
     private ProgressBar mProgressBar;
     private String mImagePath;
 
-    Thread mDownloadThread;
+    private volatile Thread mDownloadThread;
 
     public interface OnPhotoViewListener {
+        void OnPhotoViewRemove();
         void OnPhotoViewError(int errorCode, String errorMessage);
+    }
+
+    @Override
+    public boolean onBackPressed() {
+        mDownloadThread.interrupt();
+        mCallback.OnPhotoViewRemove();
+        return true;
     }
 
     @Override
@@ -67,27 +75,29 @@ public class PhotoViewFragment extends Fragment {
         mImageView = (ImageView) getView().findViewById(R.id.photo_imageview);
         mProgressBar = (ProgressBar) getView().findViewById(R.id.photo_progressBar);
 
-        GlobalThreads.PhotoView.downloadPhotoThread = new Thread(new Runnable() {
+        startDownload();
+    }
+
+    public synchronized void startDownload() {
+        mDownloadThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 loadImage(BitmapHandler.getFullScaleImage(mImagePath));
             }
         });
-        GlobalThreads.PhotoView.downloadPhotoThread.start();
+        mDownloadThread.start();
     }
 
     private void loadImage(final Bitmap bitmap) {
-        if (GlobalThreads.PhotoView.downloadPhotoThread.isInterrupted() || getActivity() == null) {
-            if (bitmap != null) bitmap.recycle();
-            return;
-        }
 
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
+        if (bitmap != null) {
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
                     mProgressBar.setVisibility(View.GONE);
                     mImageView.setImageBitmap(bitmap);
-            }
-        });
+                }
+            });
+        }
     }
 }

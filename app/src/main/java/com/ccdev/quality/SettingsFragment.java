@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,6 +15,10 @@ import android.widget.EditText;
 import com.ccdev.quality.Ignore.AuthSettings;
 import com.ccdev.quality.Utils.Networking;
 import com.ccdev.quality.Utils.Prefs;
+
+import java.util.Calendar;
+
+import jcifs.smb.SmbFile;
 
 /**
  * Created by Coleby on 7/1/2016.
@@ -29,6 +34,7 @@ public class SettingsFragment extends Fragment {
     public interface OnSettingsListener {
         void OnSettingsConfirm();
         void OnSettingsCancel();
+        void OnSettingsError(int errorCode, String errorMessage);
     }
 
     private EditText mServerInput, mRootInput, mDomainInput, mUsernameInput, mPasswordInput;
@@ -181,8 +187,13 @@ public class SettingsFragment extends Fragment {
         mGetFileTreeThread = new Thread(new Runnable() {
             @Override
             public void run() {
+                long start = java.lang.System.currentTimeMillis();
                 if (Networking.getFileTree()) {
                     mCallback.OnSettingsConfirm();
+                } else {
+                    // TODO make static error
+                    mCallback.OnSettingsError(Networking.getStatus(),
+                            "SettingsFragment.confirm() " + Networking.getStatusMessage());
                 }
             }
         });

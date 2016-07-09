@@ -5,7 +5,6 @@ import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout;
-import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,14 +19,17 @@ import com.ccdev.quality.Utils.Networking;
 import com.ccdev.quality.Utils.Prefs;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Stack;
 
 /**
  * Created by Coleby on 7/2/2016.
  */
 
 // TODO this class will need cleaned up
-public class FoldersFragment extends Fragment {
+public class FoldersFragment extends BackHandledFragment {
+
+    private static final String TAG = "Quality.FoldersFragment";
+
     private OnFoldersListener mCallback;
 
     public static String PATH_TO_FILE = "path_to_file";
@@ -38,15 +40,22 @@ public class FoldersFragment extends Fragment {
     public static final int ERROR_PREFS_MISSING = -4;
 
     private TextView mHeaderText;
-    private LinearLayout mBreadCrumbs, mFolderContents;
+    private LinearLayout mBreadCrumbViews, mFolderContents, mLoadingBack;
     private Button mNewFolder, mNewScan, mNewPhoto;
+
+    private Stack<String> mPaths = new Stack<>();
 
     public interface OnFoldersListener {
         void OnFoldersError(int errorCode, String errorMessage);
         void OnFoldersShowPhoto(String pathToFile);
     }
 
-    // TODO open with loading dialog, timeout?
+    @Override
+    public boolean onBackPressed() {
+        // TODO grab returned thread
+        goBackThreaded();
+        return true;
+    }
 
     @Override
     public void onAttach(Context context) {
@@ -66,6 +75,7 @@ public class FoldersFragment extends Fragment {
         return inflater.inflate(R.layout.fragment_folders, container, false);
     }
 
+
     @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
@@ -74,7 +84,8 @@ public class FoldersFragment extends Fragment {
 
         mHeaderText = (TextView) getView().findViewById(R.id.folders_header);
         mFolderContents = (LinearLayout) getView().findViewById(R.id.folders_list);
-        mBreadCrumbs = (LinearLayout) getView().findViewById(R.id.folders_breadcrumbs);
+        mBreadCrumbViews = (LinearLayout) getView().findViewById(R.id.folders_breadcrumbs);
+        mLoadingBack = (LinearLayout) getView().findViewById(R.id.folders_loadingBack);
         mNewFolder = (Button) getView().findViewById(R.id.folders_newFolder);
         mNewScan = (Button) getView().findViewById(R.id.folders_newScan);
         mNewPhoto = (Button) getView().findViewById(R.id.folders_newPhoto);
@@ -90,16 +101,140 @@ public class FoldersFragment extends Fragment {
         }
     }
 
-    private void populate(final ArrayList<Networking.NetworkLocation> folderItems) {
+    private Thread goBackThreaded() {
+        Thread goBackThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                goBack();
+            }
+        });
+        goBackThread.start();
+
+        return goBackThread;
+    }
+
+    private void goBack() {
+        if (mPaths != null && mPaths.size() > 1) {
+            // TODO grab returned thread
+            getFileTreeThreaded(mPaths.get(mPaths.size()-2));
+        }
+    }
+
+    private Thread getFileTreeThreaded(final String pathToFile) {
+        Thread getFileTreeThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                getFileTree(pathToFile);
+            }
+        });
+        getFileTreeThread.start();
+
+        return getFileTreeThread;
+    }
+
+    private void getFileTree(String pathToFile) {
+        ArrayList<Networking.NetworkLocation> folderItems;
+        if (Networking.getFileTree(pathToFile)) {
+            folderItems= Networking.getDirsFiles();
+        } else {
+            // TODO make a static error
+            mCallback.OnFoldersError(0, "FoldersFragment.getFileTree(): " + Networking.getStatusMessage());
+            return;
+        }
+
+        populateOnUiThread(folderItems);
+        addBreadCrumbsOnUiThread(pathToFile);
+    }
+
+    private void populateOnUiThread(final ArrayList<Networking.NetworkLocation> folderItems) {
         getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mFolderContents.removeAllViews();
-                mHeaderText.setText(Networking.getCurrentName());
+                populate(folderItems);
+            }
+        });
+    }
 
-                for (Networking.NetworkLocation item : folderItems) {
-                    addFoldersItem(item);
+    private void populate(final ArrayList<Networking.NetworkLocation> folderItems) {
+        mFolderContents.removeAllViews();
+        mHeaderText.setText(Networking.getCurrentName());
+
+        for (final Networking.NetworkLocation item : folderItems) {
+
+            ConstraintLayout itemsLayout = (ConstraintLayout) LayoutInflater.from(getContext())
+                    .inflate(R.layout.item_folders, null);
+
+            final ImageView thumbNailView = (ImageView) itemsLayout.findViewById(R.id.item_folders_thumbnail);
+            final ProgressBar loadingView = (ProgressBar) itemsLayout.findViewById(R.id.item_folders_loading);
+            TextView nameView = (TextView) itemsLayout.findViewById(R.id.item_folders_fileName);
+            TextView detailsView = (TextView) itemsLayout.findViewById(R.id.item_folders_fileDetials);
+            Button editButton = (Button) itemsLayout.findViewById(R.id.item_folders_button);
+
+            nameView.setText(item.getName());
+            detailsView.setText(item.getDetails());
+
+            if (item.isDir()) {
+                loadingView.setVisibility(View.GONE);
+                thumbNailView.setBackgroundResource(R.drawable.item_folder);
+            } else {
+                // TODO grab returned thread
+                getOrCreateThumbnailThreaded(item.getPath(), thumbNailView, loadingView);
+            }
+
+            editButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    // TODO button action
                 }
+            });
+
+            itemsLayout.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (item.isDir()) {
+                        // TODO grab returned thread
+                        getFileTreeThreaded(item.getPath());
+                    } else {
+                        mCallback.OnFoldersShowPhoto(item.getPath());
+                    }
+                }
+            });
+
+            mFolderContents.addView(itemsLayout);
+        }
+    }
+
+    private Thread getOrCreateThumbnailThreaded(final String path,
+            final ImageView thumbnailView, final ProgressBar loadingView) {
+
+        Thread getOrCreateThumbnailThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Bitmap bitmap = BitmapHandler.createOrGetThumbnail(path);
+                setThumbnailOnUiThread(thumbnailView, loadingView, bitmap);
+            }
+        });
+        getOrCreateThumbnailThread.start();
+
+        return getOrCreateThumbnailThread;
+    }
+
+    private void setThumbnailOnUiThread(final ImageView thumbnailView,
+                              final ProgressBar loadingView, final Bitmap bitmap) {
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                loadingView.setVisibility(View.GONE);
+                thumbnailView.setImageBitmap(bitmap);
+            }
+        });
+    }
+
+    private void addBreadCrumbsOnUiThread(final String currentPath) {
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                addBreadCrumbs(currentPath);
             }
         });
     }
@@ -113,92 +248,53 @@ public class FoldersFragment extends Fragment {
 
         // TODO validation?
 
-        String path = Prefs.getAuthString();
-        String split[] = currentPath.replace(path, "").split("/");
-        String splitRoot[] = Prefs.getRoot().replace(path, "").split("/");
-        splitRoot = Arrays.copyOf(splitRoot, splitRoot.length - 1);
+        if (mPaths.isEmpty()) {
+            String[] rootSplit = Prefs.getRoot().split("/");
+            mPaths.add(currentPath);
+            mBreadCrumbViews.addView(getBreadCrumbView(rootSplit[rootSplit.length - 1], currentPath));
+            return;
+        }
 
-        for (int i = 0; i < split.length; i++) {
-            path += split[i] + "/";
-            if (i >= splitRoot.length) {
-                final TextView newCrumb = new TextView(getContext());
-                newCrumb.setText(split[i].replace("/", ""));
-                newCrumb.setBackgroundResource(R.drawable.breadcrumbs);
-                newCrumb.setTag(path);
-                newCrumb.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        // TODO navigate
-                    }
-                });
+        String lastPath = mPaths.peek();
 
-                getActivity().runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        mBreadCrumbs.addView(newCrumb);
-                    }
-                });
+        String[] currentSplits = currentPath.replace(Prefs.getAuthString(), "").split("/");
+        String name = currentSplits[currentSplits.length - 1];
+
+        if (currentPath.length() == lastPath.length()) {
+            return;
+        } else if (currentPath.length() > lastPath.length()) {
+            mPaths.add(currentPath);
+            mBreadCrumbViews.addView(getBreadCrumbView(name, currentPath));
+            return;
+        }
+
+        int mark = 0;
+        for (int i = 0; i < mBreadCrumbViews.getChildCount(); i++) {
+            if (((TextView) mBreadCrumbViews.getChildAt(i)).getText().equals(name)) {
+                mark = i;
+                break;
             }
+        }
+
+        for (int i = mBreadCrumbViews.getChildCount() - 1; i > mark; i--) {
+            mPaths.pop();
+            mBreadCrumbViews.removeViewAt(i);
         }
     }
 
-    private void addFoldersItem(final Networking.NetworkLocation item) {
-        ConstraintLayout itemsLayout = (ConstraintLayout) LayoutInflater.from(getContext())
-                .inflate(R.layout.item_folders, null);
-
-        final ImageView thumbNailView = (ImageView) itemsLayout.findViewById(R.id.item_folders_thumbnail);
-        final ProgressBar loadingView = (ProgressBar) itemsLayout.findViewById(R.id.item_folders_loading);
-        TextView nameView = (TextView) itemsLayout.findViewById(R.id.item_folders_fileName);
-        TextView detailsView = (TextView) itemsLayout.findViewById(R.id.item_folders_fileDetials);
-        Button editButton = (Button) itemsLayout.findViewById(R.id.item_folders_button);
-
-        nameView.setText(item.getName());
-        detailsView.setText(item.getDetails());
-
-        if (item.isDir()) {
-            loadingView.setVisibility(View.GONE);
-            thumbNailView.setBackgroundResource(R.drawable.item_folder);
-        } else {
-            Thread thumbNailThread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    Bitmap bitmap = BitmapHandler.createOrGetThumbnail(item.getPath());
-                    setThumbnail(thumbNailView, loadingView, bitmap);
-                }
-            });
-            thumbNailThread.start();
-            mThumbnailThreads.add(thumbNailThread);
-        }
-
-        editButton.setOnClickListener(new View.OnClickListener() {
+    private TextView getBreadCrumbView(String name, String path) {
+        TextView newCrumb = new TextView(getContext());
+        newCrumb.setText(name);
+        newCrumb.setBackgroundResource(R.drawable.breadcrumbs);
+        newCrumb.setTag(path);
+        newCrumb.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // TODO button action
+                // TODO grab returned thread
+                getFileTreeThreaded((String) v.getTag());
             }
         });
 
-        itemsLayout.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (item.isDir()) {
-                    mCallback.OnFoldersNavigateTo(item.getPath());
-                } else {
-                    mCallback.OnFoldersShowPhoto(item.getPath());
-                }
-            }
-        });
-
-        mFolderContents.addView(itemsLayout);
-    }
-
-    private void setThumbnail(final ImageView thumbnailView,
-                              final ProgressBar loadingView, final Bitmap bitmap) {
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                loadingView.setVisibility(View.GONE);
-                thumbnailView.setImageBitmap(bitmap);
-            }
-        });
+        return newCrumb;
     }
 }

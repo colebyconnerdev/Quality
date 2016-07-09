@@ -78,6 +78,7 @@ public class BitmapHandler {
         BufferedInputStream inputStream;
 
         // TODO validation on all of this
+
         try {
             SmbFile smbFile = new SmbFile(pathToFile);
             inputStream = new BufferedInputStream(smbFile.getInputStream());
@@ -96,44 +97,30 @@ public class BitmapHandler {
 
         // TODO validation
 
-        Log.d(TAG, "TEST: createOrGetThumbnail(");  // TODO remove this
-        Log.d(TAG, "TEST:   pathToFile = " + pathToFile);   // TODO remove this
-        Log.d(TAG, "TEST:   <bitmap>);");   // TODO remove this
-
         HandlerItem item = new HandlerItem(pathToFile);
 
         int result = getThumbsDir(item);
-        Log.d(TAG, "TEST: getThumbsDir(pathToParent) = " + result); // TODO remove this
 
         if (result == THUMBS_DIR_EXISTS || result == THUMBS_DIR_CREATED) {
             result = getThumb(item);
-            Log.d(TAG, "TEST: getThumb(pathToParent, fileName, <bitmap>) = " + result); // TODO remove this
         } else if (result == THUMBS_DIR_NOT_CREATED) {
-            Log.d(TAG, "TEST: THUMBS_DIR_NOT_CREATED"); // TODO remove this
             return null;
         } else {
-            Log.d(TAG, "TEST: UNKNOWN_ERROR");  // TODO remove this
             return null;
         }
 
         if (result == THUMB_DOWNLOADED) {
-            Log.d(TAG, "TEST: THUMB_DOWNLOADED");   // TODO remove this
             return item.bitmap;
         } else if (result == THUMB_CREATED) {
-            Log.d(TAG, "TEST: THUMB_CREATED, uploadThumb(");    // TODO remove this
-            Log.d(TAG, "TEST:   pathToThumb = " + item.pathToThumb); // TODO remove this
             uploadThumb(item); // TODO move this to thread?
             return item.bitmap;
         } else {
-            Log.d(TAG, "TEST: UNKNOWN_ERROR");  // TODO remove this
             return null;
         }
     }
 
     private static int uploadThumb(HandlerItem item) {
         BufferedOutputStream outputStream;
-
-        Log.d(TAG, "uploadThumb: " + item.pathToThumb); // TODO remove this
 
         try {
             outputStream = new BufferedOutputStream(new SmbFileOutputStream(item.pathToThumb), BUFFER_SIZE);
@@ -273,7 +260,6 @@ public class BitmapHandler {
         }
 
         try {
-            //thumbDir.setAttributes(SmbFile.ATTR_HIDDEN);
             thumbDir.mkdir();
             thumbDir.setAttributes(SmbFile.ATTR_HIDDEN);
         } catch (SmbException e) {

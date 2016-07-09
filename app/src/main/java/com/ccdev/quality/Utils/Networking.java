@@ -30,11 +30,13 @@ public class Networking {
     public static int ERROR_SMB_EXCEPTION = -5;
     public static int ERROR_PREVIOUS_PATH_NULL = -6;
 
+    private static int DEFAULT_TIMEOUT = 3000;
+
     private static ArrayList<NetworkLocation> mDirs;
     private static ArrayList<NetworkLocation> mFiles;
 
-    private static Stack<String> mPaths = new Stack<>();
     private static String mCurrentName;
+    private static String mCurrentPath;
 
     private static final String FILES_FILTER = "(?i).*(.tif|.tiff|.gif|.jpeg|.jpg|.png)";
 
@@ -90,32 +92,8 @@ public class Networking {
     }
 
     private static void setAllToNull() {
-        mPaths = null;
         mCurrentName = null;
-    }
-
-    // TODO better validation
-    public static boolean goBack() {
-        if (mPaths != null && mPaths.size() > 1) {
-            mPaths.pop();
-            return getFileTree(mPaths.peek());
-        } else {
-            setStatus(ERROR_PREVIOUS_PATH_NULL,
-                    "Networking.goBack(): no previous path available");
-            return false;
-        }
-    }
-
-    // TODO better validation
-    public static boolean goBackTo(String path) {
-        if (mPaths != null && mPaths.contains(path)) {
-            while (mPaths.peek() != path) {
-                mPaths.pop();
-            }
-            return getFileTree(path);
-        } else {
-            return false;
-        }
+        mCurrentPath = null;
     }
 
     public static boolean getFileTree() {
@@ -126,7 +104,6 @@ public class Networking {
             return false;
         }
 
-        mPaths = new Stack<>();
         return getFileTree(Prefs.getAuthString() + Prefs.getRoot());
     }
 
@@ -140,7 +117,6 @@ public class Networking {
         }
 
         // TODO validation on path
-        mPaths.push(path);
 
         SmbFile smbRoot;
         try {
@@ -148,7 +124,7 @@ public class Networking {
         } catch (MalformedURLException e) {
             setAllToNull();
             setStatus(ERROR_MALFORMED_URL_EXCEPTION,
-                    "Networking.getFileTree(): malformed url = " + mPaths.peek());
+                    "Networking.getFileTree(): malformed url = " + path);
             return false;
         }
 
@@ -159,6 +135,7 @@ public class Networking {
         }
 
         mCurrentName = smbRoot.getName();
+        mCurrentPath = path;
 
         mDirs = new ArrayList<>();
         mFiles = new ArrayList<>();
@@ -191,7 +168,7 @@ public class Networking {
 
     public static String getCurrentPath() {
         // TODO check for null?
-        return mPaths.peek();
+        return mCurrentPath;
     }
 
     public static String getCurrentName() {
